@@ -43,8 +43,18 @@ class Mutation(graphene.ObjectType):
 schema = graphene.Schema(query=Query, mutation=Mutation)
 result = schema.execute(
     '''
-    mutation {
-        createUser(username: "Jeff") {
+    mutation($username: String) {
+        createUser(username: $username) {
+            user {
+                id
+                username
+                createdAt
+            }
+        }
+    }
+
+    query($limit: Int) {
+        users(limit: $limit) {
             user {
                 id 
                 username
@@ -52,7 +62,8 @@ result = schema.execute(
             }
         }
     }
-    '''
+    ''',
+    variable_values={'username': 'Dave', 'limit': 1}
 )
 
 print(json.dumps(dict(result.data.items()), indent=2))
