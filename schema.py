@@ -1,14 +1,7 @@
 import graphene
 import json
 import uuid
-from datetime import datetime as dt
-
-
-class User(graphene.ObjectType):
-    id = graphene.ID(default_value=str(uuid.uuid4()))
-    username = graphene.String()
-    created_at = graphene.DateTime(default_value=dt.now())
-    is_admin = graphene.Boolean()
+from datetime import datetime
 
 
 class Post(graphene.ObjectType):
@@ -16,17 +9,23 @@ class Post(graphene.ObjectType):
     content = graphene.String()
 
 
+class User(graphene.ObjectType):
+    id = graphene.ID(default_value=str(uuid.uuid4()))
+    username = graphene.String()
+    created_at = graphene.DateTime(default_value=datetime.now())
+    avatar_url = graphene.String()
+
+    def resolve_avatar_url(self, info):
+        return f'https://cloudinary.com/{self.username}/{self.id}'
+
+
 class Query(graphene.ObjectType):
     users = graphene.List(User, limit=graphene.Int())
 
-    def resolve_users(self, info, limit):
+    def resolve_users(self, info, limit=None):
         return [
-            User(id="1", username="John",
-                 created_at=dt.now(), is_admin=True),
-            User(id="2", username="Jen", created_at=dt.now(),
-                 is_admin=False),
-            User(id="3", username="Jane",
-                 created_at=dt.now(), is_admin=False),
+            User(id="1", username="Fred", created_at=datetime.now()),
+            User(id="2", username="Doug", created_at=datetime.now())
         ][:limit]
 
 
@@ -37,7 +36,7 @@ class CreateUser(graphene.Mutation):
         username = graphene.String()
 
     def mutate(self, info, username):
-        user = User(username=username, is_admin=False)
+        user = User(username=username)
         return CreateUser(user=user)
 
 
@@ -49,6 +48,8 @@ class CreatePost(graphene.Mutation):
         content = graphene.String()
 
     def mutate(self, info, title, content):
+        if info.context.get('is_anonymous'):
+            raise Exception('Not authenticated!')
         post = Post(title=title, content=content)
         return CreatePost(post=post)
 
@@ -59,18 +60,21 @@ class Mutation(graphene.ObjectType):
 
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
+
 result = schema.execute(
     '''
-
-    query getUsersQuery ($limit: Int!) {
-        users(limit: $limit) {
-                id
-                username
-                createdAt
-        }
+    {
+      users {
+        id
+        createdAt
+        username
+        avatarUrl
+      }
     }
     ''',
-    variable_values={'limit': 3}
+    # context={'is_anonymous': True}
+    # variable_values={'limit': 1}
 )
 
-print(json.dumps(dict(result.data.items()), indent=2))
+dictResult = dict(result.data.items())
+print(json.dumps(dictResult, indent=2))
